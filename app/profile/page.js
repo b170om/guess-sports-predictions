@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { logout } from '../login/actions';
 
 function StatCard({ label, value, accent }) {
   return (
@@ -198,6 +199,23 @@ export default async function ProfilePage() {
             </div>
           </div>
         </div>
+
+        <form action={logout}>
+          <button
+            type="submit"
+            className="stitch-button secondary"
+            style={{
+              width: '100%',
+              justifyContent: 'center',
+              minHeight: '52px',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>
+              logout
+            </span>
+            Log out
+          </button>
+        </form>
       </div>
 
       <div
