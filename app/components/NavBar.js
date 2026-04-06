@@ -177,7 +177,7 @@ export default function NavBar({ user }) {
         </Link>
 
         <Link
-          href="/login"
+          href={pathname === '/login' ? '/signup' : pathname === '/signup' ? '/login' : '/login'}
           className="stitch-button primary"
           style={{
             width: 'auto',
@@ -186,7 +186,7 @@ export default function NavBar({ user }) {
             borderRadius: '16px',
           }}
         >
-          Sign In
+          {pathname === '/login' ? 'Sign Up' : pathname === '/signup' ? 'Sign In' : 'Sign In'}
         </Link>
       </header>
     );
