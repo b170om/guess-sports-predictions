@@ -28,13 +28,17 @@ function formatCountdown(ms) {
   return `${minutes}m`;
 }
 
-function getStatusMeta(displayStatus) {
+function getStatusMeta(displayStatus, hasConfirmedSaved) {
   if (displayStatus === 'in_progress') {
     return { label: 'Live', className: 'success' };
   }
 
   if (displayStatus === 'finished') {
     return { label: 'Locked', className: 'error' };
+  }
+
+  if (hasConfirmedSaved) {
+    return { label: 'Saved', className: 'primary' };
   }
 
   return { label: 'Open', className: '' };
@@ -86,19 +90,36 @@ function TeamBadge({ teamName, crestUrl, accent }) {
   );
 }
 
+function toLocalPrediction(prediction) {
+  if (!prediction) return null;
+
+  return {
+    match_id: prediction.match_id,
+    predicted_home_score: prediction.predicted_home_score?.toString() ?? '',
+    predicted_away_score: prediction.predicted_away_score?.toString() ?? '',
+  };
+}
+
 export default function MatchCard({ match, existingPrediction, currentUser }) {
   const supabase = useMemo(() => createClient(), []);
-
   const [saveState, setSaveState] = useState(existingPrediction ? 'saved' : 'idle');
-  const [homeScore, setHomeScore] = useState(existingPrediction?.predicted_home_score?.toString() ?? '');
-  const [awayScore, setAwayScore] = useState(existingPrediction?.predicted_away_score?.toString() ?? '');
+  const [savedPrediction, setSavedPrediction] = useState(() => toLocalPrediction(existingPrediction));
+  const [homeScore, setHomeScore] = useState(
+    existingPrediction?.predicted_home_score?.toString() ?? ''
+  );
+  const [awayScore, setAwayScore] = useState(
+    existingPrediction?.predicted_away_score?.toString() ?? ''
+  );
   const [errorMsg, setErrorMsg] = useState('');
   const [nowTs, setNowTs] = useState(Date.now());
 
   useEffect(() => {
-    setSaveState(existingPrediction ? 'saved' : 'idle');
-    setHomeScore(existingPrediction?.predicted_home_score?.toString() ?? '');
-    setAwayScore(existingPrediction?.predicted_away_score?.toString() ?? '');
+    const nextSavedPrediction = toLocalPrediction(existingPrediction);
+
+    setSavedPrediction(nextSavedPrediction);
+    setSaveState(nextSavedPrediction ? 'saved' : 'idle');
+    setHomeScore(nextSavedPrediction?.predicted_home_score ?? '');
+    setAwayScore(nextSavedPrediction?.predicted_away_score ?? '');
     setErrorMsg('');
   }, [
     existingPrediction?.match_id,
@@ -120,36 +141,40 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
         : 'pending';
 
   const isLocked = displayStatus !== 'pending';
-  const statusMeta = getStatusMeta(displayStatus);
+  const savedHome = savedPrediction?.predicted_home_score ?? '';
+  const savedAway = savedPrediction?.predicted_away_score ?? '';
+  const hasSavedPrediction = !!savedPrediction;
+  const isEmpty = homeScore === '' || awayScore === '';
+  const isDirty = homeScore !== savedHome || awayScore !== savedAway;
+  const hasConfirmedSaved = hasSavedPrediction && !isDirty && !isLocked;
+
+  const statusMeta = getStatusMeta(displayStatus, hasConfirmedSaved);
   const countdownText =
     displayStatus === 'pending' ? formatCountdown(kickoffTs - nowTs) : null;
 
-  const originalHome = existingPrediction?.predicted_home_score?.toString() ?? '';
-  const originalAway = existingPrediction?.predicted_away_score?.toString() ?? '';
-  const hasExistingPrediction = !!existingPrediction;
-  const isDirty = homeScore !== originalHome || awayScore !== originalAway;
-  const isEmpty = homeScore === '' || awayScore === '';
-
   const helperText = isLocked
     ? ''
-    : hasExistingPrediction
+    : hasSavedPrediction
       ? isDirty
         ? 'You changed your saved prediction. Click update to save the new score.'
         : 'Prediction saved. You can still edit it until kickoff.'
       : 'You can submit one prediction and update it until kickoff.';
 
   const handleSave = async () => {
-    if (!currentUser || isLocked || isEmpty) return;
+    if (!currentUser || isLocked || isEmpty || saveState === 'loading') return;
 
     setSaveState('loading');
     setErrorMsg('');
+
+    const normalizedHome = parseInt(homeScore, 10);
+    const normalizedAway = parseInt(awayScore, 10);
 
     const { error } = await supabase.from('predictions').upsert(
       {
         username: currentUser,
         match_id: match.id,
-        predicted_home_score: parseInt(homeScore, 10),
-        predicted_away_score: parseInt(awayScore, 10),
+        predicted_home_score: normalizedHome,
+        predicted_away_score: normalizedAway,
       },
       { onConflict: 'username,match_id' }
     );
@@ -160,6 +185,11 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
       return;
     }
 
+    setSavedPrediction({
+      match_id: match.id,
+      predicted_home_score: normalizedHome.toString(),
+      predicted_away_score: normalizedAway.toString(),
+    });
     setSaveState('saved');
   };
 
@@ -167,21 +197,25 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
     ? 'Closed'
     : saveState === 'loading'
       ? 'Saving...'
-      : !hasExistingPrediction
-        ? 'Submit Prediction'
-        : isDirty
+      : hasSavedPrediction
+        ? isDirty
           ? 'Update Prediction'
-          : 'Saved';
+          : 'Saved'
+        : 'Submit Prediction';
+
+  const buttonDisabled =
+    isLocked ||
+    saveState === 'loading' ||
+    isEmpty ||
+    (hasSavedPrediction && !isDirty);
 
   const buttonClassName =
-    !isLocked && hasExistingPrediction && !isDirty
+    hasSavedPrediction && !isDirty
       ? 'stitch-button secondary'
-      : isLocked
-        ? 'stitch-button secondary'
-        : 'stitch-button primary';
+      : 'stitch-button primary';
 
   const buttonStyle =
-    !isLocked && hasExistingPrediction && !isDirty
+    hasSavedPrediction && !isDirty
       ? {
         background: 'rgba(0, 165, 114, 0.16)',
         color: '#8cf4cc',
@@ -190,12 +224,6 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
       : isLocked
         ? { opacity: 0.65 }
         : {};
-
-  const buttonDisabled =
-    isLocked ||
-    saveState === 'loading' ||
-    isEmpty ||
-    (hasExistingPrediction && !isDirty);
 
   return (
     <div
@@ -407,7 +435,7 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
         ) : helperText ? (
           <div
             style={{
-              color: hasExistingPrediction && !isDirty ? '#8cf4cc' : 'var(--text-muted)',
+              color: hasSavedPrediction && !isDirty ? '#8cf4cc' : 'var(--text-muted)',
               fontSize: '0.8rem',
               marginBottom: '0.75rem',
               lineHeight: 1.5,
@@ -427,7 +455,7 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
             <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>
               lock
             </span>
-          ) : hasExistingPrediction && !isDirty ? (
+          ) : hasSavedPrediction && !isDirty ? (
             <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>
               check_circle
             </span>
