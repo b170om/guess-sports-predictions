@@ -14,8 +14,21 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
+  metadataBase: new URL('https://guess-sports-predictions.vercel.app'),
   title: 'GUESS | Sports Predictions',
   description: 'Predict match outcomes, earn points, and climb the leaderboard.',
+  openGraph: {
+    title: 'GUESS | Sports Predictions',
+    description: 'Predict match outcomes, earn points, and climb the leaderboard.',
+    url: '/',
+    siteName: 'GUESS',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GUESS | Sports Predictions',
+    description: 'Predict match outcomes, earn points, and climb the leaderboard.',
+  },
 };
 
 export default async function RootLayout({ children }) {
