@@ -54,13 +54,17 @@ export default async function LeaderboardPage() {
 
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('username')
-    .eq('user_id', user.id)
-    .single();
+  let currentUsername = user.user_metadata?.username ?? null;
 
-  const currentUsername = profile?.username || user.user_metadata?.username || '';
+  if (!currentUsername) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('username')
+      .eq('user_id', user.id)
+      .single();
+
+    currentUsername = profile?.username ?? '';
+  }
 
   const { data: leaderData } = await supabase
     .from('leaderboard')

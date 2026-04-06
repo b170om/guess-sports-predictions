@@ -56,13 +56,17 @@ export default async function PastResultsPage() {
 
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('username')
-    .eq('user_id', user.id)
-    .single();
+  let username = user.user_metadata?.username ?? null;
 
-  const username = profile?.username || user.user_metadata?.username || '';
+  if (!username) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('username')
+      .eq('user_id', user.id)
+      .single();
+
+    username = profile?.username ?? '';
+  }
 
   const { data: predictions } = await supabase
     .from('predictions_with_points')

@@ -2,10 +2,38 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { logout } from '../login/actions';
+import { createClient } from '@/utils/supabase/client';
 
-export default function NavBar({ user, role }) {
+export default function NavBar({ user }) {
   const pathname = usePathname();
+  const supabase = useMemo(() => createClient(), []);
+  const [role, setRole] = useState(user?.user_metadata?.role ?? null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRole() {
+      if (!user?.id || role) return;
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!cancelled && !error) {
+        setRole(data?.role ?? null);
+      }
+    }
+
+    loadRole();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user?.id, role]);
 
   const navLinks = [];
 

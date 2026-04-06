@@ -24,18 +24,6 @@ export default async function RootLayout({ children }) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let role = null;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
-
-    if (profile) role = profile.role;
-  }
-
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <head>
@@ -47,7 +35,7 @@ export default async function RootLayout({ children }) {
 
       <body className={`${inter.variable} ${jakarta.variable}`}>
         <div className={`app-layout ${user ? 'shell-auth' : 'shell-guest'}`}>
-          <NavBar user={user} role={role} />
+          <NavBar user={user} />
 
           <main className="main-content">
             <div className="page-shell">
