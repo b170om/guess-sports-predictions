@@ -28,17 +28,13 @@ function formatCountdown(ms) {
   return `${minutes}m`;
 }
 
-function getStatusMeta(displayStatus, saveState) {
+function getStatusMeta(displayStatus) {
   if (displayStatus === 'in_progress') {
     return { label: 'Live', className: 'success' };
   }
 
   if (displayStatus === 'finished') {
     return { label: 'Locked', className: 'error' };
-  }
-
-  if (saveState === 'saved') {
-    return { label: 'Saved', className: 'primary' };
   }
 
   return { label: 'Open', className: '' };
@@ -92,16 +88,17 @@ function TeamBadge({ teamName, crestUrl, accent }) {
 
 export default function MatchCard({ match, existingPrediction, currentUser }) {
   const supabase = useMemo(() => createClient(), []);
+
   const [saveState, setSaveState] = useState(existingPrediction ? 'saved' : 'idle');
-  const [homeScore, setHomeScore] = useState(existingPrediction?.predicted_home_score ?? '');
-  const [awayScore, setAwayScore] = useState(existingPrediction?.predicted_away_score ?? '');
+  const [homeScore, setHomeScore] = useState(existingPrediction?.predicted_home_score?.toString() ?? '');
+  const [awayScore, setAwayScore] = useState(existingPrediction?.predicted_away_score?.toString() ?? '');
   const [errorMsg, setErrorMsg] = useState('');
   const [nowTs, setNowTs] = useState(Date.now());
 
   useEffect(() => {
     setSaveState(existingPrediction ? 'saved' : 'idle');
-    setHomeScore(existingPrediction?.predicted_home_score ?? '');
-    setAwayScore(existingPrediction?.predicted_away_score ?? '');
+    setHomeScore(existingPrediction?.predicted_home_score?.toString() ?? '');
+    setAwayScore(existingPrediction?.predicted_away_score?.toString() ?? '');
     setErrorMsg('');
   }, [
     existingPrediction?.match_id,
@@ -123,12 +120,26 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
         : 'pending';
 
   const isLocked = displayStatus !== 'pending';
-  const statusMeta = getStatusMeta(displayStatus, saveState);
+  const statusMeta = getStatusMeta(displayStatus);
   const countdownText =
     displayStatus === 'pending' ? formatCountdown(kickoffTs - nowTs) : null;
 
+  const originalHome = existingPrediction?.predicted_home_score?.toString() ?? '';
+  const originalAway = existingPrediction?.predicted_away_score?.toString() ?? '';
+  const hasExistingPrediction = !!existingPrediction;
+  const isDirty = homeScore !== originalHome || awayScore !== originalAway;
+  const isEmpty = homeScore === '' || awayScore === '';
+
+  const helperText = isLocked
+    ? ''
+    : hasExistingPrediction
+      ? isDirty
+        ? 'You changed your saved prediction. Click update to save the new score.'
+        : 'Prediction saved. You can still edit it until kickoff.'
+      : 'You can submit one prediction and update it until kickoff.';
+
   const handleSave = async () => {
-    if (!currentUser || isLocked || homeScore === '' || awayScore === '') return;
+    if (!currentUser || isLocked || isEmpty) return;
 
     setSaveState('loading');
     setErrorMsg('');
@@ -146,10 +157,45 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
     if (error) {
       setErrorMsg(error.message.includes('RLS') ? 'Locked after kickoff' : error.message);
       setSaveState('error');
-    } else {
-      setSaveState('saved');
+      return;
     }
+
+    setSaveState('saved');
   };
+
+  const buttonLabel = isLocked
+    ? 'Closed'
+    : saveState === 'loading'
+      ? 'Saving...'
+      : !hasExistingPrediction
+        ? 'Submit Prediction'
+        : isDirty
+          ? 'Update Prediction'
+          : 'Saved';
+
+  const buttonClassName =
+    !isLocked && hasExistingPrediction && !isDirty
+      ? 'stitch-button secondary'
+      : isLocked
+        ? 'stitch-button secondary'
+        : 'stitch-button primary';
+
+  const buttonStyle =
+    !isLocked && hasExistingPrediction && !isDirty
+      ? {
+        background: 'rgba(0, 165, 114, 0.16)',
+        color: '#8cf4cc',
+        border: '1px solid rgba(78, 222, 163, 0.18)',
+      }
+      : isLocked
+        ? { opacity: 0.65 }
+        : {};
+
+  const buttonDisabled =
+    isLocked ||
+    saveState === 'loading' ||
+    isEmpty ||
+    (hasExistingPrediction && !isDirty);
 
   return (
     <div
@@ -266,7 +312,10 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
             value={homeScore}
             onChange={(e) => {
               setHomeScore(e.target.value);
-              setSaveState('idle');
+              setErrorMsg('');
+              if (saveState !== 'loading') {
+                setSaveState('idle');
+              }
             }}
             disabled={isLocked || saveState === 'loading'}
             className="stitch-input score-input"
@@ -331,7 +380,10 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
             value={awayScore}
             onChange={(e) => {
               setAwayScore(e.target.value);
-              setSaveState('idle');
+              setErrorMsg('');
+              if (saveState !== 'loading') {
+                setSaveState('idle');
+              }
             }}
             disabled={isLocked || saveState === 'loading'}
             className="stitch-input score-input"
@@ -352,39 +404,36 @@ export default function MatchCard({ match, existingPrediction, currentUser }) {
           >
             {errorMsg}
           </div>
+        ) : helperText ? (
+          <div
+            style={{
+              color: hasExistingPrediction && !isDirty ? '#8cf4cc' : 'var(--text-muted)',
+              fontSize: '0.8rem',
+              marginBottom: '0.75rem',
+              lineHeight: 1.5,
+            }}
+          >
+            {helperText}
+          </div>
         ) : null}
 
-        {isLocked ? (
-          <button disabled className="stitch-button secondary" style={{ opacity: 0.65 }}>
+        <button
+          onClick={handleSave}
+          disabled={buttonDisabled}
+          className={buttonClassName}
+          style={buttonStyle}
+        >
+          {isLocked ? (
             <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>
               lock
             </span>
-            Closed
-          </button>
-        ) : saveState === 'saved' ? (
-          <button
-            disabled
-            className="stitch-button secondary"
-            style={{
-              background: 'rgba(0, 165, 114, 0.16)',
-              color: '#8cf4cc',
-              border: '1px solid rgba(78, 222, 163, 0.18)',
-            }}
-          >
+          ) : hasExistingPrediction && !isDirty ? (
             <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>
               check_circle
             </span>
-            Saved
-          </button>
-        ) : (
-          <button
-            onClick={handleSave}
-            disabled={saveState === 'loading' || homeScore === '' || awayScore === ''}
-            className="stitch-button primary"
-          >
-            {saveState === 'loading' ? 'Saving...' : 'Submit Prediction'}
-          </button>
-        )}
+          ) : null}
+          {buttonLabel}
+        </button>
       </div>
     </div>
   );
