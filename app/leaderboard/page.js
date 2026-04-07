@@ -2,6 +2,8 @@ import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { getCurrentProfile } from '@/utils/auth/get-current-profile';
 
+export const revalidate = 60;
+
 function RankBadge({ rank }) {
   const styles =
     rank === 1

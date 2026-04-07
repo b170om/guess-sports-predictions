@@ -2,6 +2,8 @@ import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { getCurrentProfile } from '@/utils/auth/get-current-profile';
 
+export const revalidate = 60;
+
 function getResultMeta(points) {
   if (points === 3) {
     return {

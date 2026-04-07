@@ -54,10 +54,20 @@ export default async function ProfilePage() {
   const username = profile.username;
   const supabase = await createClient();
 
-  const { data: predictionRows, error: predictionError } = await supabase
-    .from('predictions_with_points')
-    .select('status, points_awarded')
-    .eq('username', username);
+  const [
+    { data: rankData, error: rankError },
+    { data: predictionRows, error: predictionError },
+  ] = await Promise.all([
+    supabase.rpc('get_user_leaderboard_rank', { p_username: username }),
+    supabase
+      .from('predictions_with_points')
+      .select('status, points_awarded')
+      .eq('username', username),
+  ]);
+
+  if (rankError) {
+    console.error('Error loading leaderboard rank for profile:', rankError.message);
+  }
 
   if (predictionError) {
     console.error('Error loading prediction stats for profile:', predictionError.message);
@@ -68,6 +78,8 @@ export default async function ProfilePage() {
 
   const totalPredictions = rows.length;
   const totalPoints = rows.reduce((sum, row) => sum + Number(row.points_awarded ?? 0), 0);
+  const currentRank =
+    typeof rankData === 'number' && Number.isFinite(rankData) ? rankData : null;
 
   const exactHits = finishedRows.filter(
     (row) => Number(row.points_awarded) === 3
@@ -193,6 +205,7 @@ export default async function ProfilePage() {
           marginBottom: '1.5rem',
         }}
       >
+        <StatCard label="Current Rank" value={currentRank ? `#${currentRank}` : '—'} accent="var(--accent-blue)" />
         <StatCard label="Predictions Sent" value={totalPredictions} />
         <StatCard label="Total Points" value={totalPoints} accent="var(--success)" />
         <StatCard label="Exact Hits" value={exactHits} accent="var(--accent-blue)" />
@@ -207,7 +220,11 @@ export default async function ProfilePage() {
         </div>
 
         <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.7 }}>
-          You have submitted{' '}
+          You are currently ranked{' '}
+          <strong style={{ color: 'var(--text-main)' }}>
+            {currentRank ? `#${currentRank}` : '—'}
+          </strong>
+          , have submitted{' '}
           <strong style={{ color: 'var(--text-main)' }}>{totalPredictions}</strong> prediction
           {totalPredictions === 1 ? '' : 's'}, earned{' '}
           <strong style={{ color: 'var(--text-main)' }}>{totalPoints}</strong> point
