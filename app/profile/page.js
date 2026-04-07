@@ -54,41 +54,20 @@ export default async function ProfilePage() {
   const username = profile.username;
   const supabase = await createClient();
 
-  const [
-    { data: leaderboardEntries, error: leaderboardError },
-    { data: predictionRows, error: predictionError },
-  ] = await Promise.all([
-    supabase
-      .from('leaderboard')
-      .select('*')
-      .order('total_points', { ascending: false })
-      .order('predictions_count', { ascending: false })
-      .order('username', { ascending: true }),
-
-    supabase
-      .from('predictions_with_points')
-      .select('status, points_awarded')
-      .eq('username', username),
-  ]);
-
-  if (leaderboardError) {
-    console.error('Error loading leaderboard for profile:', leaderboardError.message);
-  }
+  const { data: predictionRows, error: predictionError } = await supabase
+    .from('predictions_with_points')
+    .select('status, points_awarded')
+    .eq('username', username);
 
   if (predictionError) {
     console.error('Error loading prediction stats for profile:', predictionError.message);
   }
 
-  const entries = leaderboardEntries || [];
-  const currentEntry = entries.find((entry) => entry.username === username) || null;
-
   const rows = predictionRows || [];
   const finishedRows = rows.filter((row) => row.status === 'finished');
 
-  const totalPredictions = currentEntry?.predictions_count ?? rows.length;
-  const totalPoints =
-    currentEntry?.total_points ??
-    rows.reduce((sum, row) => sum + Number(row.points_awarded ?? 0), 0);
+  const totalPredictions = rows.length;
+  const totalPoints = rows.reduce((sum, row) => sum + Number(row.points_awarded ?? 0), 0);
 
   const exactHits = finishedRows.filter(
     (row) => Number(row.points_awarded) === 3

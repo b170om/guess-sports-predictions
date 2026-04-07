@@ -31,6 +31,7 @@ export default function NavBar({ user }) {
     return (
       <Link
         href={href}
+        prefetch={true}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -65,6 +66,7 @@ export default function NavBar({ user }) {
     return (
       <Link
         href={href}
+        prefetch={true}
         style={{
           flex: 1,
           minWidth: 0,
@@ -229,6 +231,7 @@ export default function NavBar({ user }) {
         >
           <Link
             href="/profile"
+            prefetch={true}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -315,6 +318,7 @@ export default function NavBar({ user }) {
 
         <Link
           href="/profile"
+          prefetch={true}
           style={{
             width: '38px',
             height: '38px',
