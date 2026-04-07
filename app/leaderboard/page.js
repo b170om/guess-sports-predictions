@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { getCurrentProfile } from '@/utils/auth/get-current-profile';
 
 function RankBadge({ rank }) {
   const styles =
@@ -47,24 +48,13 @@ function RankBadge({ rank }) {
 }
 
 export default async function LeaderboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentProfile();
 
   if (!user) redirect('/login');
 
-  let currentUsername = user.user_metadata?.username ?? null;
+  const currentUsername = profile?.username ?? '';
 
-  if (!currentUsername) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('username')
-      .eq('user_id', user.id)
-      .single();
-
-    currentUsername = profile?.username ?? '';
-  }
+  const supabase = await createClient();
 
   const { data: leaderData } = await supabase
     .from('leaderboard')

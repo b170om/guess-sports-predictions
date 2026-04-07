@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { logout } from '../login/actions';
+import { getCurrentProfile } from '@/utils/auth/get-current-profile';
 
 function StatCard({ label, value, accent }) {
   return (
@@ -40,31 +41,18 @@ function StatCard({ label, value, accent }) {
 }
 
 export default async function ProfilePage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentProfile();
 
   if (!user) {
     redirect('/login');
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('username, email, role, profile_image')
-    .eq('user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
+  if (!profile?.username) {
     redirect('/');
   }
 
-  const username = profile.username || user.user_metadata?.username || null;
-
-  if (!username) {
-    redirect('/');
-  }
+  const username = profile.username;
+  const supabase = await createClient();
 
   const [
     { data: leaderboardEntries, error: leaderboardError },

@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { getCurrentProfile } from '@/utils/auth/get-current-profile';
 
 function getResultMeta(points) {
   if (points === 3) {
@@ -49,24 +50,17 @@ function rowKey(row, index) {
 }
 
 export default async function PastResultsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentProfile();
 
   if (!user) redirect('/login');
 
-  let username = user.user_metadata?.username ?? null;
+  const username = profile?.username ?? '';
 
   if (!username) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('username')
-      .eq('user_id', user.id)
-      .single();
-
-    username = profile?.username ?? '';
+    redirect('/login');
   }
+
+  const supabase = await createClient();
 
   const { data: predictions } = await supabase
     .from('predictions_with_points')

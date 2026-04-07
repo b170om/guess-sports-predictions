@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { getCurrentProfile } from '@/utils/auth/get-current-profile';
 import CreateMatchForm from './CreateMatchForm';
 import ImportChampionsLeaguePanel from './ImportChampionsLeaguePanel';
 import SyncChampionsLeagueResultsPanel from './SyncChampionsLeagueResultsPanel';
@@ -41,22 +42,15 @@ function StatCard({ label, value, accent }) {
 }
 
 export default async function AdminPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentProfile();
 
   if (!user) redirect('/login');
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
 
   if (!profile || profile.role !== 'admin') {
     redirect('/');
   }
+
+  const supabase = await createClient();
 
   const { count: usersCount } = await supabase
     .from('users')

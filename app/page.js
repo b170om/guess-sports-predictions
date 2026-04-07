@@ -1,38 +1,23 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
+import { getCurrentProfile } from '@/utils/auth/get-current-profile';
 import MatchCard from './components/MatchCard';
 import RefreshFeedButton from './components/RefreshFeedButton';
 
 export default async function Home() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentProfile();
 
   if (!user) {
     redirect('/login');
   }
 
-  let username = user.user_metadata?.username ?? null;
-
-  if (!username) {
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('username')
-      .eq('user_id', user.id)
-      .single();
-
-    if (profileError) {
-      console.error('Error loading username for home page:', profileError.message);
-    }
-
-    username = profile?.username ?? null;
-  }
+  const username = profile?.username ?? null;
 
   if (!username) {
     redirect('/login');
   }
+
+  const supabase = await createClient();
 
   const [
     { data: matchesData, error: matchesError },

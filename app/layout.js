@@ -1,7 +1,7 @@
 import './globals.css';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import NavBar from './components/NavBar';
-import { createClient } from '@/utils/supabase/server';
+import { getCurrentProfile } from '@/utils/auth/get-current-profile';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -32,10 +32,16 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentProfile();
+
+  const navUser = user
+    ? {
+      id: user.id,
+      email: user.email ?? '',
+      username: profile?.username ?? null,
+      role: profile?.role ?? null,
+    }
+    : null;
 
   return (
     <html lang="en" data-scroll-behavior="smooth">
@@ -47,8 +53,8 @@ export default async function RootLayout({ children }) {
       </head>
 
       <body className={`${inter.variable} ${jakarta.variable}`}>
-        <div className={`app-layout ${user ? 'shell-auth' : 'shell-guest'}`}>
-          <NavBar user={user} />
+        <div className={`app-layout ${navUser ? 'shell-auth' : 'shell-guest'}`}>
+          <NavBar user={navUser} />
 
           <main className="main-content">
             <div className="page-shell">
