@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { syncChampionsLeagueResults } from './actions';
 
 export default function SyncChampionsLeagueResultsPanel() {
+    const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState(null);
 
@@ -13,6 +15,10 @@ export default function SyncChampionsLeagueResultsPanel() {
         startTransition(async () => {
             const response = await syncChampionsLeagueResults();
             setResult(response);
+
+            if (response?.success) {
+                router.refresh();
+            }
         });
     };
 
@@ -50,6 +56,17 @@ export default function SyncChampionsLeagueResultsPanel() {
                     <div>Checked: {result.checkedCount ?? 0}</div>
                     <div>Synced to finished: {result.syncedCount ?? 0}</div>
                     <div>Unchanged: {result.unchangedCount ?? 0}</div>
+                </div>
+            )}
+
+            {Array.isArray(result?.failedMatches) && result.failedMatches.length > 0 && (
+                <div style={{ marginTop: '1rem', color: 'var(--error)', fontSize: '0.9rem', lineHeight: 1.7 }}>
+                    <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Failed matches:</div>
+                    {result.failedMatches.map((item, index) => (
+                        <div key={`${item.matchId}-${index}`}>
+                            {item.label}: {item.reason}
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

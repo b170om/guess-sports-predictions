@@ -280,16 +280,20 @@ export async function syncChampionsLeagueResults() {
         checkedCount: 0,
         syncedCount: 0,
         unchangedCount: 0,
+        failedMatches: [],
         message: 'No imported Champions League matches need syncing right now.',
       }
     }
 
     let syncedCount = 0
     let unchangedCount = 0
+    const failedMatches = []
 
     for (const match of candidates) {
       try {
-        const apiMatch = await fetchFootballData(`/matches/${match.external_match_id}`)
+        const rawApiResponse = await fetchFootballData(`/matches/${match.external_match_id}`)
+        const apiMatch = rawApiResponse?.match ?? rawApiResponse
+
         const apiStatus = apiMatch?.status
         const fullTimeHome = apiMatch?.score?.fullTime?.home
         const fullTimeAway = apiMatch?.score?.fullTime?.away
@@ -310,16 +314,27 @@ export async function syncChampionsLeagueResults() {
 
           if (updateError) {
             console.error(`Error updating finished match ${match.id}:`, updateError)
+            failedMatches.push({
+              matchId: match.id,
+              label: `${match.home_team} vs ${match.away_team}`,
+              reason: updateError.message,
+            })
             unchangedCount += 1
             continue
           }
 
           syncedCount += 1
-        } else {
-          unchangedCount += 1
+          continue
         }
+
+        unchangedCount += 1
       } catch (matchError) {
         console.error(`Sync failed for match ${match.id}:`, matchError)
+        failedMatches.push({
+          matchId: match.id,
+          label: `${match.home_team} vs ${match.away_team}`,
+          reason: matchError?.message || 'Unknown sync error',
+        })
         unchangedCount += 1
       }
     }
@@ -331,6 +346,7 @@ export async function syncChampionsLeagueResults() {
       checkedCount: candidates.length,
       syncedCount,
       unchangedCount,
+      failedMatches,
       message: 'Champions League result sync completed.',
     }
   } catch (error) {
