@@ -81,12 +81,6 @@ async function fetchFootballData(pathname, params = {}) {
 
   if (!apiKey) {
     throw new Error('Missing FOOTBALL_DATA_API_KEY in .env.local')
-    console.log('ENV CHECK -> FOOTBALL_DATA_API_KEY exists:', Boolean(process.env.FOOTBALL_DATA_API_KEY))
-    console.log('ENV CHECK -> FOOTBALL_DATA_API_KEY length:', process.env.FOOTBALL_DATA_API_KEY?.length ?? 0)
-    console.log(
-      'ENV CHECK -> football-related keys:',
-      Object.keys(process.env).filter((key) => key.includes('FOOTBALL'))
-    )
   }
 
   const url = new URL(`${FOOTBALL_DATA_BASE_URL}${pathname}`)
@@ -266,12 +260,15 @@ export async function syncChampionsLeagueResults() {
   }
 
   try {
+    const nowIso = new Date().toISOString()
+
     const { data: matchesToSync, error: matchesError } = await supabase
       .from('matches')
-      .select('id, home_team, away_team, external_match_id, status')
+      .select('id, home_team, away_team, external_match_id, status, match_datetime')
       .eq('external_source', IMPORT_SOURCE)
       .neq('status', 'finished')
       .not('external_match_id', 'is', null)
+      .lte('match_datetime', nowIso)
 
     if (matchesError) {
       console.error('Error loading matches for sync:', matchesError)
