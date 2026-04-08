@@ -78,10 +78,7 @@ function getTeamName(team) {
 
 async function fetchFootballData(pathname, params = {}) {
   const apiKey = process.env.FOOTBALL_DATA_API_KEY
-
-  if (!apiKey) {
-    throw new Error('Missing FOOTBALL_DATA_API_KEY in .env.local')
-  }
+  const hasKey = Boolean(apiKey)
 
   const url = new URL(`${FOOTBALL_DATA_BASE_URL}${pathname}`)
 
@@ -89,6 +86,17 @@ async function fetchFootballData(pathname, params = {}) {
     if (value !== undefined && value !== null && value !== '') {
       url.searchParams.set(key, String(value))
     }
+  })
+
+  if (!hasKey) {
+    throw new Error(`ENV missing at runtime for ${pathname}`)
+  }
+
+  console.log('[football-data] request', {
+    pathname,
+    hasKey,
+    keyLength: apiKey?.length ?? 0,
+    url: url.toString(),
   })
 
   const response = await fetch(url.toString(), {
@@ -99,12 +107,26 @@ async function fetchFootballData(pathname, params = {}) {
     cache: 'no-store',
   })
 
+  const text = await response.text()
+
+  console.log('[football-data] response', {
+    pathname,
+    status: response.status,
+    ok: response.ok,
+    preview: text.slice(0, 200),
+  })
+
   if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`football-data request failed (${response.status}): ${text.slice(0, 200)}`)
+    throw new Error(
+      `football-data request failed for ${pathname} (${response.status}): ${text.slice(0, 200)}`
+    )
   }
 
-  return response.json()
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(`football-data returned non-JSON for ${pathname}: ${text.slice(0, 200)}`)
+  }
 }
 
 export async function createMatch(formData) {
