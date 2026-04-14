@@ -66,10 +66,13 @@ export async function signup(formData) {
 
   if (availabilityError) {
     console.error('Username availability check failed:', availabilityError)
+    // Log the raw response to help debug the DB function
+    console.error('isAvailable value was:', isAvailable)
     return { error: 'Could not validate username right now. Please try again.' }
   }
 
-  if (!isAvailable) {
+  // Use strict equality: null/undefined from a broken RPC should NOT block signup
+  if (isAvailable === false) {
     return { error: 'Username is already taken =(' }
   }
 
@@ -88,9 +91,18 @@ export async function signup(formData) {
 
     const normalizedMessage = error.message?.toLowerCase() ?? ''
 
+    // Email already registered — must check before generic 'already' catch
+    if (
+      normalizedMessage.includes('email') ||
+      normalizedMessage.includes('user already registered') ||
+      normalizedMessage.includes('already registered')
+    ) {
+      return { error: 'An account with this email already exists. Try signing in instead.' }
+    }
+
+    // Explicit username duplicate from DB constraint
     if (
       normalizedMessage.includes('duplicate') ||
-      normalizedMessage.includes('already') ||
       normalizedMessage.includes('username')
     ) {
       return { error: 'Username is already taken =(' }
